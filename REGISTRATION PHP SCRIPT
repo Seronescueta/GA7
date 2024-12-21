@@ -1,0 +1,41 @@
+// Redirect user to homepage if they are already logged in
+if (isset($_SESSION['user'])) {
+    header("Location: index.php");
+    exit;
+}
+
+// Include database connection
+include('db.php');
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = $_POST['username']; // Get the username
+    $name = $_POST['name'];
+    $email = $_POST['email'];
+    $password = $_POST['password'];
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT); // Hash the password
+
+    // Check if username or email already exists in the database
+    $stmt = $conn->prepare("SELECT * FROM users WHERE username = ? OR email = ?");
+    $stmt->bind_param("ss", $username, $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows > 0) {
+        $error = "An account with that username or email already exists.";
+    } else {
+        // Insert new user into the database
+        $stmt = $conn->prepare("INSERT INTO users (username, name, email, password) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $username, $name, $email, $hashedPassword);
+        if ($stmt->execute()) {
+            // Set session after successful signup and redirect to login
+            $_SESSION['user'] = $username; // Use username for session
+            $_SESSION['user_id'] = $conn->insert_id; // Store user ID in session
+            header("Location: login.php");
+            exit;
+        } else {
+            $error = "Something went wrong. Please try again.";
+        }
+    }
+}
+?>
